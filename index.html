@@ -592,11 +592,20 @@
         }
 
         async function fetchApi(url, options) {
-            const res = await fetch(url, options);
-            const text = await res.text();
-            try { return JSON.parse(text); } catch (e) {
-                console.error('Response bukan JSON:', text.substring(0, 200));
-                throw new Error('Response server bukan JSON.');
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 30000);
+            try {
+                const res = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(timeout);
+                const text = await res.text();
+                try { return JSON.parse(text); } catch (e) {
+                    console.error('Response bukan JSON:', text.substring(0, 200));
+                    throw new Error('Response server bukan JSON.');
+                }
+            } catch (err) {
+                clearTimeout(timeout);
+                if (err.name === 'AbortError') throw new Error('Request timeout (30 detik). Coba lagi.');
+                throw err;
             }
         }
 
