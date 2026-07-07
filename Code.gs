@@ -8,7 +8,7 @@ const COLUMNS = [
   'location','pic','picPhone',
   'quotSent','invoiceSent','paymentChecked','notes',
   'feeTotal','dpAmount','dpDate','pelunasanAmount','pelunasanDate',
-  'briefFolderUrl'
+  'briefFolderUrl','dateEnd'
 ];
 
 // Header tampilan untuk spreadsheet (urutan sama dengan COLUMNS)
@@ -17,7 +17,7 @@ const HEADERS = [
   'LOKASI EVENT','PIC NAME','PIC Phone',
   'QUOT','INVOICE','PAYMENT','CATATAN',
   'JUMLAH NOMINAL','Downpayment','DP - Tanggal','Pelunasan','Lunas - Date',
-  'Upload Brief'
+  'Upload Brief','DATE END'
 ];
 
 // ================= WEB APP HANDLERS =================
@@ -115,12 +115,12 @@ function rowToEvent(row) {
 
   // Konversi tanggal & waktu dari Date object Sheets ke string
   obj.date = toDateStr(obj.date);
+  obj.dateEnd = toDateStr(obj.dateEnd);
   obj.time = toTimeStr(obj.time);
   obj.dpDate = toDateStr(obj.dpDate);
   obj.pelunasanDate = toDateStr(obj.pelunasanDate);
 
   // Field yang tidak ada di spreadsheet — set default
-  obj.dateEnd = '';
   obj.locationUrl = '';
   obj.briefFiles = [];
 
