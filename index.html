@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IMAJIK Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#020617">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        imajik: {
+                            dark: '#0f172a',
+                            darker: '#020617',
+                            card: '#1e293b',
+                            accent: '#3b82f6',
+                            success: '#10b981',
+                            warning: '#f59e0b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #000;
+            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #000 70%);
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Simulasi HP */
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+            background-color: #020617;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+            border-left: 1px solid #1e293b;
+            border-right: 1px solid #1e293b;
+        }
+
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .toast {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
+            opacity: 0;
+            z-index: 50;
+            width: 90%;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .btn-active:active {
+            transform: scale(0.96);
+            transition: 0.1s;
+        }
+
+        /* Icon kalender & jam bawaan browser defaultnya gelap, diinvert biar keliatan di background gelap */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator:hover,
+        input[type="time"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body class="text-slate-200">
+
+    <div class="app-container">
+
+        <!-- Login View (Tampil pertama kali) -->
+        <div id="login-view"
+            class="flex-1 flex flex-col items-center justify-center px-6 relative z-10 w-full h-full bg-[#020617] transition-opacity duration-500">
+            <div class="w-full max-w-sm text-center fade-in">
+                <div class="w-60 h-60 mx-auto flex items-center justify-center -mb-6">
+                    <img src="logo-imajik.png" alt="Logo IMAJIK"
+                        class="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-2">CEO Access</h1>
+                <p class="text-sm text-slate-400 mb-8">IMAJIK Command Center</p>
+
+                <div class="space-y-4">
+                    <div class="relative">
+                        <i
+                            class="fa-solid fa-lock absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500"></i>
+                        <input type="password" id="passcode" placeholder="Enter Access Code" value="admin"
+                            class="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-xl py-3.5 pl-12 pr-12 focus:outline-none focus:border-imajik-accent transition-colors">
+                        <button type="button" onclick="togglePassword()" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors">
+                            <i id="eye-icon" class="fa-solid fa-eye"></i>
+                        </button>
+                    </div>
+                    <button id="btn-login" onclick="handleLogin()"
+                        class="btn-active w-full bg-imajik-accent text-white font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.4)] transition-all">
+                        Masuk
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard View (Disembunyikan awalnya) -->
+        <div id="dashboard-view" class="hidden relative flex-col h-full w-full fade-in">
+            <!-- Header -->
+            <header
+                class="pt-14 pb-5 px-6 bg-slate-900/80 backdrop-blur-md flex justify-between items-center z-10 border-b border-slate-800">
+                <div>
+                    <p class="text-[10px] text-imajik-accent font-bold uppercase tracking-widest mb-1"
+                        id="current-date">Kamis, 2 Jul 2026</p>
+                    <h1 class="text-xl font-bold text-white tracking-tight leading-none">Command Center</h1>
+                    <p class="text-xs text-slate-400 mt-1.5 flex items-center gap-1.5">
+                        <span
+                            class="w-1.5 h-1.5 rounded-full bg-imajik-success shadow-[0_0_8px_#10b981] animate-pulse"></span>
+                        Brillian Fairiandi
+                    </p>
+                </div>
+                <div class="relative shrink-0">
+                    <div class="w-14 h-14 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center overflow-hidden shadow-lg">
+                        <img src="foto-ceo.jpg" alt="Foto CEO" class="w-full h-full object-contain"
+                            style="transform: scale(2);"
+                            onerror="this.onerror=null;this.src='https://placehold.co/100x100/1e293b/3b82f6?text=BF';">
+                    </div>
+                    <button onclick="handleLogout()"
+                        class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-all shadow-lg"
+                        title="Logout">
+                        <i class="fa-solid fa-power-off text-[9px]"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main id="main-content" class="flex-1 overflow-y-auto hide-scroll px-5 pb-24 pt-6 z-0 relative">
+                <!-- Konten Kalender akan di-inject ke sini oleh JS -->
+            </main>
+
+            <!-- Floating Action Button: Tambah Event -->
+            <button onclick="openEventForm(null, selectedDate)"
+                class="btn-active absolute bottom-6 right-5 z-20 w-14 h-14 rounded-full bg-imajik-accent text-white shadow-[0_8px_24px_rgba(59,130,246,0.55)] flex items-center justify-center text-xl">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+        </div>
+
+        <!-- Modal Tambah / Edit Event -->
+        <div id="event-modal" class="hidden absolute inset-0 z-30 items-end justify-center">
+            <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeEventForm()"></div>
+            <div
+                class="relative w-full bg-imajik-card rounded-t-3xl border-t border-slate-700 max-h-[88vh] overflow-y-auto hide-scroll fade-in">
+                <div
+                    class="sticky top-0 bg-imajik-card/95 backdrop-blur px-5 pt-5 pb-4 border-b border-slate-800 flex items-center justify-between z-10">
+                    <h3 id="event-modal-title" class="text-base font-bold text-white">Tambah Event</h3>
+                    <button type="button" onclick="closeEventForm()"
+                        class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <form id="event-form" class="px-5 py-5 flex flex-col gap-4" onsubmit="return saveEvent(event)">
+                    <input type="hidden" id="ev-id">
+
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Judul
+                            Event</label>
+                        <input required type="text" id="ev-title" placeholder="Cth: Meeting Strategi Q3"
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors">
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Nama
+                            Client / Perusahaan</label>
+                        <input type="text" id="ev-client" placeholder="Cth: PT Astra Internasional"
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors">
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Jenis Event</label>
+                        <select id="ev-category" class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors">
+                            <option value="speaking">🎤 Speaking</option>
+                            <option value="training">🎓 Training / Workshop</option>
+                            <option value="meeting">💼 Meeting</option>
+                            <option value="interview">🎙️ Media / Interview</option>
+                            <option value="internal">📋 Internal</option>
+                            <option value="other">📌 Lainnya</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label
+                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Tanggal
+                                Mulai</label>
+                            <input required type="date" id="ev-date"
+                                class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                        </div>
+                        <div>
+                            <label
+                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Jam</label>
+                            <input required type="time" id="ev-time"
+                                class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Tanggal
+                            Berakhir <span class="text-slate-600 normal-case">(opsional, kosongkan jika 1
+                                hari)</span></label>
+                        <input type="date" id="ev-date-end"
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                        <p class="text-[10px] text-slate-500 mt-1.5"><i class="fa-solid fa-circle-info mr-1"></i>Isi
+                            jika event berlangsung lebih dari 1 hari.</p>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Lokasi / Link Meeting</label>
+                        <input type="text" id="ev-location" placeholder="Cth: Hotel Mulia Jakarta / link Zoom"
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors mb-2">
+                        <input type="url" id="ev-location-url" placeholder="Link Google Maps atau Zoom (opsional)"
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label
+                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">PIC</label>
+                            <input type="text" id="ev-pic" placeholder="Nama penanggung jawab"
+                                class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                        </div>
+                        <div>
+                            <label
+                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">No.
+                                Telp/WA PIC</label>
+                            <input type="tel" id="ev-pic-phone" placeholder="08xxxxxxxxxx"
+                                class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Progres</label>
+                        <div class="flex flex-col gap-2 bg-slate-900/50 border border-slate-800 rounded-xl p-3">
+                            <label class="flex items-center gap-2 text-xs text-slate-300">
+                                <input type="checkbox" id="ev-quot" style="accent-color:#3b82f6" class="w-4 h-4">
+                                Quotation Terkirim
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-300">
+                                <input type="checkbox" id="ev-invoice" style="accent-color:#3b82f6" class="w-4 h-4">
+                                Invoice Terkirim
+                            </label>
+                            <label class="flex items-center gap-2 text-xs text-slate-300">
+                                <input type="checkbox" id="ev-payment-check" style="accent-color:#3b82f6"
+                                    class="w-4 h-4"> Payment Diterima
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label
+                            class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Catatan</label>
+                        <textarea id="ev-notes" rows="3" placeholder="Detail tambahan untuk Pimpinan..."
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors resize-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Upload
+                            Brief (maks 5 file)</label>
+                        <input type="file" id="ev-files-input" multiple class="hidden"
+                            onchange="handleFileSelect(this)">
+                        <button type="button" onclick="document.getElementById('ev-files-input').click()"
+                            class="btn-active w-full border border-dashed border-slate-600 text-slate-300 text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 hover:border-imajik-accent transition-colors">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Pilih File
+                        </button>
+                        <div id="ev-files-list" class="flex flex-col gap-1.5 mt-2"></div>
+                        <p class="text-[10px] text-slate-500 mt-1.5">File otomatis masuk 1 folder Google Drive: "Brief -
+                            [Judul Event]".</p>
+                    </div>
+
+                    <div class="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                        <button type="button" onclick="toggleBudgetSection()"
+                            class="w-full flex items-center justify-between p-3.5">
+                            <span
+                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                <i class="fa-solid fa-wallet text-imajik-accent"></i> Budget / Fee
+                            </span>
+                            <i id="budget-toggle-icon"
+                                class="fa-solid fa-chevron-down text-slate-500 text-xs transition-transform"></i>
+                        </button>
+                        <div id="budget-section-body" style="display:none;" class="flex-col gap-3 px-3.5 pb-3.5">
+                            <div>
+                                <label
+                                    class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Jumlah
+                                    Nominal</label>
+                                <input type="number" min="0" id="ev-fee-total" placeholder="0"
+                                    class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-4 focus:outline-none focus:border-imajik-accent transition-colors">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 mt-3">
+                                <div>
+                                    <label
+                                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">DP
+                                        - Nominal</label>
+                                    <input type="number" min="0" id="ev-dp-amount" placeholder="0"
+                                        class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                                </div>
+                                <div>
+                                    <label
+                                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">DP
+                                        - Tanggal</label>
+                                    <input type="date" id="ev-dp-date"
+                                        class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 mt-3">
+                                <div>
+                                    <label
+                                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Pelunasan
+                                        - Nominal</label>
+                                    <input type="number" min="0" id="ev-pelunasan-amount" placeholder="0"
+                                        class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                                </div>
+                                <div>
+                                    <label
+                                        class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Pelunasan
+                                        - Tanggal</label>
+                                    <input type="date" id="ev-pelunasan-date"
+                                        class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-3 px-3 focus:outline-none focus:border-imajik-accent transition-colors">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="ev-delete-confirm" style="display:none;"
+                        class="flex-col gap-2 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                        <p class="text-xs text-red-300">Yakin mau hapus event ini? Tindakan ini tidak bisa dibatalkan.
+                        </p>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="confirmDeleteEvent()"
+                                class="flex-1 bg-red-500 text-white text-xs font-bold py-2.5 rounded-lg">Ya,
+                                Hapus</button>
+                            <button type="button" onclick="cancelDeleteEvent()"
+                                class="flex-1 bg-slate-700 text-slate-200 text-xs font-bold py-2.5 rounded-lg">Batal</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2 pt-2">
+                        <button type="submit"
+                            class="btn-active w-full bg-imajik-accent text-white font-bold py-3.5 rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)]">Simpan
+                            Event</button>
+                        <button type="button" id="ev-delete-btn" onclick="requestDeleteEvent()"
+                            class="hidden btn-active w-full bg-slate-800 border border-red-500/40 text-red-400 font-bold py-3.5 rounded-xl">Hapus
+                            Event</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toast / Notifikasi Cepat (Penting: Jangan sampai dihapus agar JS tidak error) -->
+        <div id="toast"
+            class="toast bg-slate-800/95 backdrop-blur-sm border border-slate-700 text-white p-4 rounded-2xl shadow-2xl flex items-start gap-3">
+            <div class="mt-0.5 text-imajik-accent"><i class="fa-solid fa-circle-check"></i></div>
+            <div>
+                <h4 class="text-sm font-bold" id="toast-title">Notifikasi</h4>
+                <p class="text-xs text-slate-400 mt-0.5 leading-relaxed" id="toast-msg">Pesan notifikasi.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// ================= CONFIG =================
+        const API_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxXZyW3xdZf6ayoRWZRWujF7QxRiL_WVUHHlL0L5GEhyZSv3XdQebvb7qdbC6GwsII7Fg/exec';
+
+        // ================= KATEGORI =================
+        const CATEGORIES = {
+            speaking:  { label: 'Speaking',           icon: '🎤', color: '#3b82f6', tw: 'bg-blue-500'   },
+            training:  { label: 'Training / Workshop',icon: '🎓', color: '#8b5cf6', tw: 'bg-purple-500' },
+            meeting:   { label: 'Meeting',            icon: '💼', color: '#f59e0b', tw: 'bg-amber-500'  },
+            interview: { label: 'Media / Interview',  icon: '🎙️', color: '#ec4899', tw: 'bg-pink-500'   },
+            internal:  { label: 'Internal',           icon: '📋', color: '#6b7280', tw: 'bg-gray-500'   },
+            other:     { label: 'Lainnya',            icon: '📌', color: '#10b981', tw: 'bg-emerald-500'},
+        };
+
+        function getCat(key) { return CATEGORIES[key] || CATEGORIES.other; }
+
+        // ================= STATE & HELPERS =================
+        const MONTH_NAMES = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+        function pad2(n) { return String(n).padStart(2, '0'); }
+
+        function esc(str) {
+            return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function toISO(date) {
+            return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+        }
+
+        function dateFromISO(iso) {
+            const [y, m, d] = iso.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+
+        function addDays(date, n) {
+            const d = new Date(date);
+            d.setDate(d.getDate() + n);
+            return d;
+        }
+
+        function todayDate() {
+            const d = new Date();
+            d.setHours(0, 0, 0, 0);
+            return d;
+        }
+
+        function todayISO() { return toISO(todayDate()); }
+
+        function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+
+        function firstWeekdayMonday(year, month) {
+            const d = new Date(year, month, 1).getDay();
+            return (d + 6) % 7;
+        }
+
+        function formatLong(iso) {
+            return dateFromISO(iso).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function formatRupiah(n) {
+            return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID');
+        }
+
+        function isLunas(event) {
+            const total = Number(event.feeTotal) || 0;
+            const paid = (Number(event.dpAmount) || 0) + (Number(event.pelunasanAmount) || 0);
+            return total > 0 && paid >= total;
+        }
+
+        function formatWaNumber(phone) {
+            let p = String(phone || '').replace(/[^0-9]/g, '');
+            if (p.startsWith('0')) p = '62' + p.slice(1);
+            return p;
+        }
+
+        // ================= DATA =================
+        let events = [];
+
+        let viewYear = todayDate().getFullYear();
+        let viewMonth = todayDate().getMonth();
+        let selectedDate = todayISO();
+        let searchQuery = '';
+
+        let pendingFiles = [];
+        let existingBriefFiles = [];
+
+        const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+        function validDateEnd(e) {
+            return e.dateEnd && DATE_RE.test(e.dateEnd) ? e.dateEnd : null;
+        }
+
+        function getEventsForDate(iso) {
+            return events.filter(e => {
+                const end = validDateEnd(e);
+                if (end && end >= e.date) return iso >= e.date && iso <= end;
+                return e.date === iso;
+            }).sort((a, b) => a.time.localeCompare(b.time));
+        }
+
+        function isEventOnDate(event, iso) {
+            const end = validDateEnd(event);
+            if (end && end >= event.date) return iso >= event.date && iso <= end;
+            return event.date === iso;
+        }
+
+        function formatDateRange(event) {
+            if (event.dateEnd && event.dateEnd !== event.date) {
+                const s = dateFromISO(event.date), e = dateFromISO(event.dateEnd);
+                const opts = { day: 'numeric', month: 'short' };
+                const optsY = { day: 'numeric', month: 'short', year: 'numeric' };
+                return s.toLocaleDateString('id-ID', s.getFullYear() === e.getFullYear() ? opts : optsY) + ' — ' + e.toLocaleDateString('id-ID', optsY);
+            }
+            return null;
+        }
+
+        function searchEvents(q) {
+            const lower = q.toLowerCase().trim();
+            if (!lower) return [];
+            return events.filter(e =>
+                (e.title || '').toLowerCase().includes(lower) ||
+                (e.clientName || '').toLowerCase().includes(lower) ||
+                (e.pic || '').toLowerCase().includes(lower) ||
+                (e.location || '').toLowerCase().includes(lower) ||
+                (e.category || '').toLowerCase().includes(lower)
+            ).sort((a, b) => b.date.localeCompare(a.date));
+        }
+
+        // ================= UPLOAD FILE =================
+        function totalStagedFiles() { return pendingFiles.length + existingBriefFiles.length; }
+
+        function handleFileSelect(input) {
+            const newFiles = Array.from(input.files || []);
+            if (totalStagedFiles() + newFiles.length > 5) {
+                showToast('Terlalu Banyak', 'Maksimal 5 file per event.');
+                input.value = '';
+                return;
+            }
+            pendingFiles = pendingFiles.concat(newFiles);
+            input.value = '';
+            renderFileChips();
+        }
+
+        function removePendingFile(i) { pendingFiles.splice(i, 1); renderFileChips(); }
+        function removeExistingFile(i) { existingBriefFiles.splice(i, 1); renderFileChips(); }
+
+        function renderFileChips() {
+            const list = document.getElementById('ev-files-list');
+            if (!list) return;
+            let html = '';
+            existingBriefFiles.forEach((f, i) => {
+                html += `<div class="flex items-center justify-between bg-slate-900/70 border border-slate-800 rounded-lg px-3 py-2">
+                    <span class="text-xs text-slate-300 truncate flex items-center gap-2"><i class="fa-solid fa-file text-imajik-accent"></i> ${esc(f.name)}</span>
+                    <button type="button" onclick="removeExistingFile(${i})" class="text-slate-500 hover:text-red-400 text-xs px-1"><i class="fa-solid fa-xmark"></i></button>
+                </div>`;
+            });
+            pendingFiles.forEach((f, i) => {
+                html += `<div class="flex items-center justify-between bg-slate-900/70 border border-slate-800 rounded-lg px-3 py-2">
+                    <span class="text-xs text-slate-300 truncate flex items-center gap-2"><i class="fa-solid fa-file-arrow-up text-imajik-warning"></i> ${esc(f.name)}</span>
+                    <button type="button" onclick="removePendingFile(${i})" class="text-slate-500 hover:text-red-400 text-xs px-1"><i class="fa-solid fa-xmark"></i></button>
+                </div>`;
+            });
+            list.innerHTML = html;
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result).split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function fetchApi(url, options) {
+            const res = await fetch(url, options);
+            const text = await res.text();
+            try { return JSON.parse(text); } catch (e) {
+                console.error('Response bukan JSON:', text.substring(0, 200));
+                throw new Error('Response server bukan JSON.');
+            }
+        }
+
+        function generateEventId(dateStr, clientName) {
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y.slice(-2)}_${(clientName || 'Internal').trim()}`;
+        }
+
+        async function uploadPendingFiles(eventId) {
+            if (pendingFiles.length === 0) return { files: [], folderUrl: null };
+            if (!API_ENDPOINT) {
+                showToast('Belum Terhubung', 'File disimpan sementara di sesi ini.');
+                return { files: pendingFiles.map(f => ({ name: f.name, url: null })), folderUrl: null };
+            }
+            try {
+                const payloadFiles = await Promise.all(pendingFiles.map(async f => ({
+                    name: f.name, mimeType: f.type || 'application/octet-stream', data: await fileToBase64(f)
+                })));
+                const result = await fetchApi(API_ENDPOINT, {
+                    method: 'POST', redirect: 'follow',
+                    body: JSON.stringify({ action: 'uploadFiles', eventId: eventId || 'Tanpa-ID', files: payloadFiles })
+                });
+                if (!result.success) { showToast('Upload Gagal', result.error || 'Error.'); return { files: [], folderUrl: null }; }
+                return { files: result.files || [], folderUrl: result.folderUrl || null };
+            } catch (err) {
+                showToast('Upload Gagal', err.message || 'Tidak bisa menghubungi server.');
+                return { files: [], folderUrl: null };
+            }
+        }
+
+        function openBriefFiles(id) {
+            const ev = events.find(e => e.id === id);
+            if (!ev) return;
+            if (ev.briefFolderUrl) window.open(ev.briefFolderUrl, '_blank');
+            else showToast('Tidak Ada Brief', 'Belum ada file brief untuk event ini.');
+        }
+
+        // ================= TOGGLE STATUS (langsung dari card) =================
+        async function toggleStatus(eventId, field) {
+            const ev = events.find(e => e.id === eventId);
+            if (!ev) return;
+
+            // Toggle nilai
+            ev[field] = !ev[field];
+
+            // Update tampilan langsung
+            currentViewKey = '';
+            renderCalendarView();
+
+            const label = field === 'quotSent' ? 'Quotation' : field === 'invoiceSent' ? 'Invoice' : 'Payment';
+            const statusText = ev[field] ? (field === 'paymentChecked' ? 'Done' : 'Terkirim') : '-';
+            showToast(label, `${label}: ${statusText}`);
+
+            // Simpan ke server di background
+            if (API_ENDPOINT) {
+                try {
+                    await fetchApi(API_ENDPOINT, {
+                        method: 'POST', redirect: 'follow',
+                        body: JSON.stringify({ action: 'saveEvent', event: ev })
+                    });
+                } catch (err) {
+                    showToast('Gagal Simpan', 'Perubahan status belum tersimpan ke server.');
+                }
+            }
+        }
+
+        // ================= EVENT CARD =================
+        function eventCardHtml(event) {
+            const hasBrief = !!event.briefFolderUrl;
+            const hasFee = Number(event.feeTotal) > 0;
+            const lunas = isLunas(event);
+            const cat = getCat(event.category);
+            const hasMultiDay = event.dateEnd && event.dateEnd !== event.date;
+
+            return `
+                <div class="bg-imajik-card rounded-2xl p-5 border border-slate-700 shadow-xl relative overflow-hidden group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5" style="background:${cat.color}"></div>
+
+                    <div class="flex justify-between items-start mb-4 pl-1">
+                        <div class="min-w-0 flex-1 mr-2">
+                            <div class="flex flex-wrap gap-1.5 mb-2">
+                                <span class="inline-block px-2 py-1 bg-slate-900 rounded text-[10px] font-bold text-slate-300 border border-slate-700">
+                                    <i class="fa-regular fa-clock mr-1" style="color:${cat.color}"></i> ${esc(event.time)} WIB
+                                </span>
+                                <span class="inline-block px-2 py-1 rounded text-[10px] font-bold border" style="background:${cat.color}22;color:${cat.color};border-color:${cat.color}55">
+                                    ${cat.icon} ${esc(cat.label)}
+                                </span>
+                                ${(() => { const range = formatDateRange(event); return range ? `<span class="inline-block px-2 py-1 bg-purple-500/15 rounded text-[10px] font-bold text-purple-300 border border-purple-500/30"><i class="fa-regular fa-calendar-days mr-1"></i>${esc(range)}</span>` : ''; })()}
+                            </div>
+                            <h3 class="text-base font-bold text-white leading-tight mb-1">${esc(event.title)}</h3>
+                            ${event.clientName ? `<p class="text-[11px] text-slate-500 mb-0.5">Client: ${esc(event.clientName)}</p>` : ''}
+                            <p class="text-xs text-slate-400 flex items-center gap-1 flex-wrap">
+                                PIC: ${esc(event.pic || '-')}
+                                ${event.picPhone ? `<span class="text-slate-600">&bull;</span> ${esc(event.picPhone)}
+                                    <a href="https://wa.me/${formatWaNumber(event.picPhone)}" target="_blank" rel="noopener"
+                                       class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/20 text-green-400 ml-0.5 shrink-0">
+                                        <i class="fa-brands fa-whatsapp text-[10px]"></i>
+                                    </a>` : ''}
+                            </p>
+                            ${event.location ? `
+                            <p class="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                                <i class="fa-solid fa-location-dot text-[9px]"></i>
+                                ${event.locationUrl ? `<a href="${esc(event.locationUrl)}" target="_blank" rel="noopener" class="underline underline-offset-2 decoration-slate-600 hover:text-imajik-accent transition-colors">${esc(event.location)}</a>` : esc(event.location)}
+                            </p>` : ''}
+                        </div>
+                        <button onclick="openEventForm('${esc(event.id)}')" class="btn-active w-8 h-8 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-imajik-accent transition-colors shrink-0">
+                            <i class="fa-solid fa-pen text-xs"></i>
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-900/80 rounded-xl p-3.5 mb-4 border border-slate-800 pl-4 relative">
+                        <div class="absolute -left-[1px] top-4 bottom-4 w-[2px] bg-slate-700"></div>
+                        <p class="text-[11px] text-slate-300 mb-3">${esc(event.notes || 'Tidak ada catatan.')}</p>
+                        <div class="pt-2 border-t border-slate-700/50 flex items-center gap-2">
+                            <i class="fa-solid fa-signature text-slate-500 text-xs"></i>
+                            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Knowing: Brillian Fairiandi</p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-1.5 mb-4 flex-wrap">
+                        <button onclick="toggleStatus('${esc(event.id)}','quotSent')" class="btn-active text-[9px] font-bold px-2 py-1 rounded-full border cursor-pointer transition-all ${event.quotSent ? 'bg-imajik-success/15 text-imajik-success border-imajik-success/40' : 'bg-slate-900 text-slate-500 border-slate-700'}"><i class="fa-solid ${event.quotSent ? 'fa-check' : 'fa-circle'} text-[7px] mr-1"></i>Quotation</button>
+                        <button onclick="toggleStatus('${esc(event.id)}','invoiceSent')" class="btn-active text-[9px] font-bold px-2 py-1 rounded-full border cursor-pointer transition-all ${event.invoiceSent ? 'bg-imajik-success/15 text-imajik-success border-imajik-success/40' : 'bg-slate-900 text-slate-500 border-slate-700'}"><i class="fa-solid ${event.invoiceSent ? 'fa-check' : 'fa-circle'} text-[7px] mr-1"></i>Invoice</button>
+                        <button onclick="toggleStatus('${esc(event.id)}','paymentChecked')" class="btn-active text-[9px] font-bold px-2 py-1 rounded-full border cursor-pointer transition-all ${event.paymentChecked ? 'bg-imajik-success/15 text-imajik-success border-imajik-success/40' : 'bg-slate-900 text-slate-500 border-slate-700'}"><i class="fa-solid ${event.paymentChecked ? 'fa-check' : 'fa-circle'} text-[7px] mr-1"></i>Payment</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 pl-1">
+                        ${hasBrief ? `
+                        <button onclick="openBriefFiles('${esc(event.id)}')" class="btn-active w-full bg-slate-800 border border-slate-600 text-slate-200 text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
+                            <i class="fa-solid fa-folder-open text-imajik-accent text-sm"></i> Brief
+                        </button>` : `
+                        <button onclick="openEventForm('${esc(event.id)}')" class="w-full bg-slate-900/50 border border-dashed border-slate-700 text-slate-500 text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-file-circle-plus text-sm"></i> No Brief
+                        </button>`}
+
+                        ${hasFee ? `
+                        <button onclick="openEventForm('${esc(event.id)}')" class="btn-active w-full ${lunas ? 'bg-imajik-success text-white' : 'bg-slate-800 border border-slate-600 text-slate-200'} text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_10px_rgba(0,0,0,0.3)]">
+                            <i class="fa-solid ${lunas ? 'fa-circle-check' : 'fa-wallet'} text-sm"></i> ${lunas ? 'LUNAS' : formatRupiah(event.feeTotal)}
+                        </button>` : `
+                        <button onclick="openEventForm('${esc(event.id)}')" class="w-full bg-slate-900/50 border border-dashed border-slate-700 text-slate-500 text-xs font-bold py-3.5 rounded-xl flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-wallet text-sm"></i> No Budget
+                        </button>`}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ================= CALENDAR VIEW =================
+        let calendarBuilt = false;
+        let currentViewKey = '';
+
+        function buildCalendarShell() {
+            const container = document.getElementById('main-content');
+            container.innerHTML = `
+                <div>
+                    <!-- Search Bar -->
+                    <div class="relative mb-5">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="text" id="search-input" placeholder="Cari event, client, atau PIC..."
+                            oninput="handleSearch(this.value)"
+                            class="w-full bg-slate-900/70 border border-slate-700 text-white text-sm rounded-xl py-2.5 pl-10 pr-10 focus:outline-none focus:border-imajik-accent transition-colors">
+                        <button id="search-clear" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300">
+                            <i class="fa-solid fa-xmark text-xs"></i>
+                        </button>
+                    </div>
+                    <div id="search-results" class="hidden mb-5"></div>
+
+                    <div id="calendar-main">
+                        <div class="flex items-center justify-between mb-6">
+                            <button onclick="changeMonth(-1)" class="btn-active w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                                <i class="fa-solid fa-chevron-left text-xs"></i>
+                            </button>
+                            <div class="text-center">
+                                <h2 id="cal-month-title" class="text-lg font-bold text-white leading-none"></h2>
+                                <button onclick="goToToday()" class="text-[10px] font-bold text-imajik-accent mt-1">HARI INI</button>
+                            </div>
+                            <button onclick="changeMonth(1)" class="btn-active w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                                <i class="fa-solid fa-chevron-right text-xs"></i>
+                            </button>
+                        </div>
+
+                        <div class="bg-imajik-card rounded-2xl p-5 border border-slate-700 shadow-xl mb-6">
+                            <div class="grid grid-cols-7 gap-2 mb-3 text-center">
+                                <div class="text-[10px] font-bold text-slate-500">S</div>
+                                <div class="text-[10px] font-bold text-slate-500">S</div>
+                                <div class="text-[10px] font-bold text-slate-500">R</div>
+                                <div class="text-[10px] font-bold text-slate-500">K</div>
+                                <div class="text-[10px] font-bold text-slate-500">J</div>
+                                <div class="text-[10px] font-bold text-slate-500">S</div>
+                                <div class="text-[10px] font-bold text-slate-500">M</div>
+                            </div>
+                            <div id="cal-days-grid" class="grid grid-cols-7 gap-2"></div>
+                        </div>
+
+                        <div id="cal-agenda-section"></div>
+                    </div>
+                </div>
+            `;
+            calendarBuilt = true;
+        }
+
+        function handleSearch(val) {
+            searchQuery = val;
+            const clearBtn = document.getElementById('search-clear');
+            const resultsDiv = document.getElementById('search-results');
+            const calMain = document.getElementById('calendar-main');
+
+            if (!val.trim()) {
+                clearBtn && clearBtn.classList.add('hidden');
+                resultsDiv && resultsDiv.classList.add('hidden');
+                calMain && calMain.classList.remove('hidden');
+                return;
+            }
+
+            clearBtn && clearBtn.classList.remove('hidden');
+            const results = searchEvents(val);
+
+            if (results.length === 0) {
+                resultsDiv.innerHTML = `<div class="text-center py-8 text-slate-500"><i class="fa-solid fa-search text-lg mb-2"></i><p class="text-xs">Tidak ada hasil untuk "${esc(val)}"</p></div>`;
+            } else {
+                resultsDiv.innerHTML = `<p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">${results.length} hasil ditemukan</p><div class="flex flex-col gap-4">${results.map(eventCardHtml).join('')}</div>`;
+            }
+            resultsDiv && resultsDiv.classList.remove('hidden');
+            calMain && calMain.classList.add('hidden');
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('search-input');
+            if (input) input.value = '';
+            handleSearch('');
+        }
+
+        function renderCalendarView() {
+            if (!calendarBuilt) buildCalendarShell();
+
+            const viewKey = `${viewYear}-${viewMonth}`;
+            const monthChanged = viewKey !== currentViewKey;
+            currentViewKey = viewKey;
+
+            const numDays = daysInMonth(viewYear, viewMonth);
+            const offset = firstWeekdayMonday(viewYear, viewMonth);
+            const iso = todayISO();
+
+            document.getElementById('cal-month-title').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+
+            if (monthChanged) {
+                let offsetHtml = '';
+                for (let i = 0; i < offset; i++) offsetHtml += '<div></div>';
+
+                let daysHtml = '';
+                for (let d = 1; d <= numDays; d++) {
+                    const dateStr = `${viewYear}-${pad2(viewMonth + 1)}-${pad2(d)}`;
+                    const dayEvts = getEventsForDate(dateStr);
+                    const hasEvent = dayEvts.length > 0;
+
+                    let dotHtml = '';
+                    if (hasEvent) {
+                        const cats = [...new Set(dayEvts.map(e => e.category || 'other'))];
+                        if (cats.length === 1) {
+                            const c = getCat(cats[0]);
+                            dotHtml = `<div class="cal-dot absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full" style="background:${c.color};box-shadow:0 0 5px ${c.color}"></div>`;
+                        } else {
+                            const dots = cats.slice(0, 3).map(k => `<div class="w-1 h-1 rounded-full" style="background:${getCat(k).color}"></div>`).join('');
+                            dotHtml = `<div class="cal-dot absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">${dots}</div>`;
+                        }
+                    }
+
+                    daysHtml += `
+                        <div class="relative cursor-pointer btn-active" data-date="${dateStr}" onclick="selectDate('${dateStr}')">
+                            <div class="cal-day-cell flex flex-col items-center justify-center h-10 w-full rounded-xl text-xs font-bold transition-all">${d}</div>
+                            ${dotHtml}
+                        </div>`;
+                }
+                document.getElementById('cal-days-grid').innerHTML = offsetHtml + daysHtml;
+            }
+
+            document.querySelectorAll('#cal-days-grid [data-date]').forEach(wrapper => {
+                const dateStr = wrapper.dataset.date;
+                const cell = wrapper.querySelector('.cal-day-cell');
+                const dot = wrapper.querySelector('.cal-dot');
+                const isToday = dateStr === iso;
+                const isSelected = dateStr === selectedDate;
+
+                cell.className = 'cal-day-cell flex flex-col items-center justify-center h-10 w-full rounded-xl text-xs font-bold transition-all ';
+                if (isToday) cell.className += 'bg-imajik-accent text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]';
+                else if (isSelected) cell.className += 'text-white bg-slate-700 border border-imajik-accent';
+                else cell.className += 'text-slate-400 bg-slate-800/30';
+                if (dot) dot.style.display = isToday ? 'none' : '';
+            });
+
+            const dayEvents = getEventsForDate(selectedDate);
+            const isSelectedToday = selectedDate === iso;
+            let agendaHtml = '';
+            if (dayEvents.length === 0) {
+                agendaHtml = `<div class="text-center py-10 px-4 bg-imajik-card/50 rounded-2xl border border-dashed border-slate-700">
+                    <p class="text-xs text-slate-400 mb-4">Belum ada event di tanggal ini.</p>
+                    <button onclick="openEventForm(null, '${selectedDate}')" class="btn-active inline-flex items-center gap-2 bg-imajik-accent text-white text-xs font-bold px-5 py-3 rounded-xl"><i class="fa-solid fa-plus"></i> Tambah Event</button>
+                </div>`;
+            } else {
+                agendaHtml = `<div class="flex flex-col gap-5">${dayEvents.map(eventCardHtml).join('')}</div>`;
+            }
+
+            document.getElementById('cal-agenda-section').innerHTML = `
+                <div class="flex justify-between items-center mb-4 px-1">
+                    <h3 class="text-sm font-bold text-slate-300">${isSelectedToday ? 'Agenda Hari Ini' : esc(formatLong(selectedDate))}</h3>
+                    ${dayEvents.length > 0 ? `<button onclick="openEventForm(null, '${selectedDate}')" class="btn-active w-7 h-7 rounded-full bg-imajik-accent/20 text-imajik-accent flex items-center justify-center"><i class="fa-solid fa-plus text-xs"></i></button>` : ''}
+                </div>
+                ${agendaHtml}`;
+        }
+
+        function changeMonth(delta) {
+            viewMonth += delta;
+            if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            currentViewKey = '';
+            renderCalendarView();
+        }
+
+        function goToToday() {
+            const t = todayDate();
+            viewYear = t.getFullYear();
+            viewMonth = t.getMonth();
+            selectedDate = todayISO();
+            renderCalendarView();
+        }
+
+        function selectDate(dateStr) {
+            selectedDate = dateStr;
+            renderCalendarView();
+        }
+
+        // ================= SINKRONISASI DATABASE =================
+        async function loadEventsFromServer() {
+            if (!API_ENDPOINT) return;
+
+            document.getElementById('main-content').innerHTML = `
+                <div class="flex flex-col items-center justify-center py-24 text-slate-500">
+                    <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i>
+                    <p class="text-xs">Memuat data dari server...</p>
+                </div>`;
+
+            try {
+                const result = await fetchApi(`${API_ENDPOINT}?action=listEvents`);
+                if (result.success) events = result.events || [];
+                else showToast('Gagal Memuat', result.error || 'Data lokal tetap dipakai.');
+            } catch (err) {
+                showToast('Gagal Terhubung', 'Tidak bisa mengambil data dari server.');
+            }
+        }
+
+        // ================= LOGIN =================
+        function handleLogin() {
+            const btn = document.getElementById('btn-login');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memverifikasi...';
+
+            setTimeout(() => {
+                const loginView = document.getElementById('login-view');
+                loginView.style.opacity = '0';
+
+                setTimeout(async () => {
+                    loginView.classList.add('hidden');
+                    const dashboard = document.getElementById('dashboard-view');
+                    dashboard.classList.remove('hidden');
+                    dashboard.classList.add('flex');
+
+                    document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+
+                    await loadEventsFromServer();
+                    calendarBuilt = false;
+                    currentViewKey = '';
+                    renderCalendarView();
+
+                    showToast('Akses Diberikan', 'Selamat datang, Brillian Fairiandi.');
+                    btn.innerHTML = 'Masuk';
+                    loginView.style.opacity = '1';
+                }, 500);
+            }, 800);
+        }
+
+        function handleLogout() {
+            const dashboard = document.getElementById('dashboard-view');
+            const loginView = document.getElementById('login-view');
+
+            dashboard.style.opacity = '0';
+            dashboard.style.transition = 'opacity 0.4s';
+
+            setTimeout(() => {
+                dashboard.classList.remove('flex');
+                dashboard.classList.add('hidden');
+                dashboard.style.opacity = '1';
+                dashboard.style.transition = '';
+
+                loginView.classList.remove('hidden');
+                loginView.style.opacity = '1';
+
+                // Reset state
+                events = [];
+                calendarBuilt = false;
+                currentViewKey = '';
+                searchQuery = '';
+
+                showToast('Logout', 'Sesi berakhir. Sampai jumpa!');
+            }, 400);
+        }
+
+        // ================= EVENT FORM =================
+        function toggleBudgetSection(forceOpen) {
+            const body = document.getElementById('budget-section-body');
+            const icon = document.getElementById('budget-toggle-icon');
+            const isOpen = body.style.display === 'flex';
+            const open = forceOpen !== undefined ? forceOpen : !isOpen;
+            body.style.display = open ? 'flex' : 'none';
+            icon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function openEventForm(id = null, presetDate = null) {
+            document.getElementById('event-form').reset();
+            document.getElementById('ev-id').value = '';
+            document.getElementById('ev-delete-confirm').style.display = 'none';
+            document.getElementById('ev-delete-btn').classList.add('hidden');
+            document.getElementById('event-modal-title').innerText = 'Tambah Event';
+            toggleBudgetSection(false);
+
+            pendingFiles = [];
+            existingBriefFiles = [];
+
+            if (id) {
+                const ev = events.find(e => e.id === id);
+                if (ev) {
+                    document.getElementById('ev-id').value = ev.id;
+                    document.getElementById('ev-title').value = ev.title;
+                    document.getElementById('ev-client').value = ev.clientName || '';
+                    document.getElementById('ev-category').value = ev.category || 'other';
+                    document.getElementById('ev-date').value = ev.date;
+                    document.getElementById('ev-time').value = ev.time;
+                    document.getElementById('ev-date-end').value = ev.dateEnd || '';
+                    document.getElementById('ev-location').value = ev.location || '';
+                    document.getElementById('ev-location-url').value = ev.locationUrl || '';
+                    document.getElementById('ev-pic').value = ev.pic || '';
+                    document.getElementById('ev-pic-phone').value = ev.picPhone || '';
+                    document.getElementById('ev-quot').checked = !!ev.quotSent;
+                    document.getElementById('ev-invoice').checked = !!ev.invoiceSent;
+                    document.getElementById('ev-payment-check').checked = !!ev.paymentChecked;
+                    document.getElementById('ev-notes').value = ev.notes || '';
+                    document.getElementById('ev-fee-total').value = ev.feeTotal || '';
+                    document.getElementById('ev-dp-amount').value = ev.dpAmount || '';
+                    document.getElementById('ev-dp-date').value = ev.dpDate || '';
+                    document.getElementById('ev-pelunasan-amount').value = ev.pelunasanAmount || '';
+                    document.getElementById('ev-pelunasan-date').value = ev.pelunasanDate || '';
+                    existingBriefFiles = (ev.briefFiles || []).slice();
+                    document.getElementById('event-modal-title').innerText = 'Edit Event';
+                    document.getElementById('ev-delete-btn').classList.remove('hidden');
+                    if (Number(ev.feeTotal) > 0) toggleBudgetSection(true);
+                }
+            } else {
+                document.getElementById('ev-date').value = presetDate || selectedDate || todayISO();
+            }
+
+            renderFileChips();
+            const modal = document.getElementById('event-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeEventForm() {
+            const modal = document.getElementById('event-modal');
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+            document.getElementById('ev-delete-confirm').style.display = 'none';
+        }
+
+        async function saveEvent(e) {
+            e.preventDefault();
+            const id = document.getElementById('ev-id').value;
+            const existingEvent = id ? events.find(ev => ev.id === id) : null;
+
+            const dateEndVal = document.getElementById('ev-date-end').value || '';
+            const dateStartVal = document.getElementById('ev-date').value;
+
+            if (dateEndVal && dateEndVal < dateStartVal) {
+                showToast('Tanggal Salah', 'Tanggal berakhir tidak boleh sebelum tanggal mulai.');
+                return false;
+            }
+
+            const data = {
+                title: document.getElementById('ev-title').value.trim(),
+                clientName: document.getElementById('ev-client').value.trim(),
+                category: document.getElementById('ev-category').value,
+                date: dateStartVal,
+                dateEnd: dateEndVal,
+                time: document.getElementById('ev-time').value,
+                location: document.getElementById('ev-location').value.trim(),
+                locationUrl: document.getElementById('ev-location-url').value.trim(),
+                pic: document.getElementById('ev-pic').value.trim(),
+                picPhone: document.getElementById('ev-pic-phone').value.trim(),
+                quotSent: document.getElementById('ev-quot').checked,
+                invoiceSent: document.getElementById('ev-invoice').checked,
+                paymentChecked: document.getElementById('ev-payment-check').checked,
+                notes: document.getElementById('ev-notes').value.trim(),
+                feeTotal: Number(document.getElementById('ev-fee-total').value) || 0,
+                dpAmount: Number(document.getElementById('ev-dp-amount').value) || 0,
+                dpDate: document.getElementById('ev-dp-date').value || null,
+                pelunasanAmount: Number(document.getElementById('ev-pelunasan-amount').value) || 0,
+                pelunasanDate: document.getElementById('ev-pelunasan-date').value || null,
+            };
+
+            if (!data.title || !data.date || !data.time) {
+                showToast('Belum Lengkap', 'Judul, tanggal, dan jam wajib diisi.');
+                return false;
+            }
+
+            const eventId = id || generateEventId(data.date, data.clientName);
+            const uploadResult = await uploadPendingFiles(eventId);
+            data.briefFiles = existingBriefFiles.concat(uploadResult.files);
+            data.briefFolderUrl = uploadResult.folderUrl || (existingEvent ? existingEvent.briefFolderUrl : null) || null;
+
+            const saveBtn = document.querySelector('#event-form button[type="submit"]');
+            const saveBtnOriginalText = saveBtn ? saveBtn.innerHTML : '';
+
+            if (API_ENDPOINT) {
+                if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
+                try {
+                    const result = await fetchApi(API_ENDPOINT, {
+                        method: 'POST', redirect: 'follow',
+                        body: JSON.stringify({ action: 'saveEvent', event: { id: eventId, ...data } })
+                    });
+                    if (!result.success) {
+                        showToast('Gagal Simpan', result.error || 'Error.');
+                        if (saveBtn) saveBtn.innerHTML = saveBtnOriginalText;
+                        return false;
+                    }
+                    const saved = result.event;
+                    const idx = events.findIndex(ev => ev.id === saved.id);
+                    if (idx > -1) events[idx] = saved; else events.push(saved);
+                    showToast(id ? 'Tersimpan' : 'Ditambahkan', `Event "${saved.title}" berhasil ${id ? 'diperbarui' : 'ditambahkan'}.`);
+                    selectedDate = saved.date;
+                    viewYear = dateFromISO(saved.date).getFullYear();
+                    viewMonth = dateFromISO(saved.date).getMonth();
+                } catch (err) {
+                    showToast('Gagal Terhubung', 'Perubahan belum tersimpan.');
+                    if (saveBtn) saveBtn.innerHTML = saveBtnOriginalText;
+                    return false;
+                }
+            } else {
+                if (id) {
+                    const idx = events.findIndex(ev => ev.id === id);
+                    if (idx > -1) events[idx] = { ...events[idx], ...data };
+                    showToast('Tersimpan', `Event "${data.title}" berhasil diperbarui.`);
+                } else {
+                    data.id = generateEventId(data.date, data.clientName);
+                    events.push(data);
+                    showToast('Ditambahkan', `Event "${data.title}" berhasil ditambahkan.`);
+                }
+                selectedDate = data.date;
+                viewYear = dateFromISO(data.date).getFullYear();
+                viewMonth = dateFromISO(data.date).getMonth();
+            }
+
+            closeEventForm();
+            currentViewKey = '';
+            renderCalendarView();
+            return false;
+        }
+
+        function requestDeleteEvent() { document.getElementById('ev-delete-confirm').style.display = 'flex'; }
+        function cancelDeleteEvent() { document.getElementById('ev-delete-confirm').style.display = 'none'; }
+
+        async function confirmDeleteEvent() {
+            const id = document.getElementById('ev-id').value;
+            if (!id) return;
+            const ev = events.find(e => e.id === id);
+
+            if (API_ENDPOINT) {
+                try {
+                    const result = await fetchApi(API_ENDPOINT, {
+                        method: 'POST', redirect: 'follow',
+                        body: JSON.stringify({ action: 'deleteEvent', id, briefFolderUrl: ev ? ev.briefFolderUrl : null })
+                    });
+                    if (!result.success) { showToast('Gagal Hapus', result.error || 'Error.'); return; }
+                } catch (err) { showToast('Gagal Terhubung', 'Tidak bisa menghubungi server.'); return; }
+            }
+
+            events = events.filter(e => e.id !== id);
+            closeEventForm();
+            showToast('Dihapus', `Event "${ev ? ev.title : ''}" berhasil dihapus.`);
+            renderCalendarView();
+        }
+
+        // ================= MISC =================
+        function showToast(title, message) {
+            const toast = document.getElementById('toast');
+            const titleEl = document.getElementById('toast-title');
+            const msgEl = document.getElementById('toast-msg');
+            if (titleEl && msgEl && toast) {
+                titleEl.innerText = title;
+                msgEl.innerText = message;
+                toast.classList.add('show');
+                setTimeout(() => { toast.classList.remove('show'); }, 3000);
+            }
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('passcode');
+            const icon = document.getElementById('eye-icon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+    </script>
+</body>
+
+</html>
