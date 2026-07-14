@@ -5,125 +5,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IMAJIK Command Center</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Compiled static CSS — replaces Tailwind CDN runtime -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts with font-display: swap for instant text render -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome (kept for now, cached by service worker) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#020617">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icon-192.png">
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        imajik: {
-                            dark: '#0f172a',
-                            darker: '#020617',
-                            card: '#1e293b',
-                            accent: '#3b82f6',
-                            success: '#10b981',
-                            warning: '#f59e0b',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-
-    <style>
-        body {
-            background-color: #000;
-            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #000 70%);
-            display: flex;
-            justify-content: center;
-            margin: 0;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* Simulasi HP */
-        .app-container {
-            width: 100%;
-            max-width: 400px;
-            height: 100%;
-            background-color: #020617;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-            border-left: 1px solid #1e293b;
-            border-right: 1px solid #1e293b;
-        }
-
-        .hide-scroll::-webkit-scrollbar {
-            display: none;
-        }
-
-        .hide-scroll {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .fade-in {
-            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(15px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .toast {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-100px);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s;
-            opacity: 0;
-            z-index: 50;
-            width: 90%;
-        }
-
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-
-        .btn-active:active {
-            transform: scale(0.96);
-            transition: 0.1s;
-        }
-
-        /* Icon kalender & jam bawaan browser defaultnya gelap, diinvert biar keliatan di background gelap */
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="time"]::-webkit-calendar-picker-indicator {
-            filter: invert(1);
-            cursor: pointer;
-            opacity: 0.8;
-        }
-
-        input[type="date"]::-webkit-calendar-picker-indicator:hover,
-        input[type="time"]::-webkit-calendar-picker-indicator:hover {
-            opacity: 1;
-        }
-    </style>
 </head>
 
 <body class="text-slate-200">
 
     <div class="app-container">
+
+        <!-- Sync Status Bar (muncul saat sinkronisasi / offline) -->
+        <div id="sync-bar" class="sync-bar hidden-bar">
+            <div class="flex items-center justify-center gap-2 py-1 px-3 text-xs font-bold" style="background:rgba(59,130,246,0.9);color:#fff;">
+                <i class="fa-solid fa-rotate fa-spin text-[10px]"></i>
+                <span id="sync-bar-text">Menyinkronkan...</span>
+            </div>
+        </div>
 
         <!-- Login View (Tampil pertama kali) -->
         <div id="login-view"
@@ -131,7 +36,7 @@
             <div class="w-full max-w-sm text-center fade-in">
                 <div class="w-60 h-60 mx-auto flex items-center justify-center -mb-6">
                     <img src="logo-imajik.png" alt="Logo IMAJIK"
-                        class="w-full h-full object-contain drop-shadow-[0_0_30px_rgba(59,130,246,0.3)]">
+                        class="w-full h-full object-contain drop-shadow-logo">
                 </div>
                 <h1 class="text-2xl font-bold text-white mb-2">CEO Access</h1>
                 <p class="text-sm text-slate-400 mb-8">IMAJIK Command Center</p>
@@ -171,8 +76,7 @@
                 </div>
                 <div class="relative shrink-0">
                     <div class="w-14 h-14 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center overflow-hidden shadow-lg">
-                        <img src="foto-ceo.jpg" alt="Foto CEO" class="w-full h-full object-contain"
-                            style="transform: scale(2);"
+                        <img src="foto-ceo.jpg" alt="Foto CEO" class="w-full h-full object-contain scale-ceo"
                             onerror="this.onerror=null;this.src='https://placehold.co/100x100/1e293b/3b82f6?text=BF';">
                     </div>
                     <button onclick="handleLogout()"
@@ -492,6 +396,124 @@
             return p;
         }
 
+        // ================= INDEXEDDB — LOCAL-FIRST DATA LAYER =================
+        const IDB = {
+            DB_NAME: 'imajik_cc',
+            DB_VERSION: 1,
+            STORE_EVENTS: 'events',
+            STORE_QUEUE: 'sync_queue',
+            _db: null,
+
+            open() {
+                return new Promise((resolve, reject) => {
+                    if (this._db) { resolve(this._db); return; }
+                    const req = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.STORE_EVENTS)) {
+                            db.createObjectStore(this.STORE_EVENTS, { keyPath: 'id' });
+                        }
+                        if (!db.objectStoreNames.contains(this.STORE_QUEUE)) {
+                            db.createObjectStore(this.STORE_QUEUE, { keyPath: 'queueId', autoIncrement: true });
+                        }
+                    };
+                    req.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
+                    req.onerror = (e) => { console.error('[IDB] Open error:', e); reject(e); };
+                });
+            },
+
+            async getAll() {
+                try {
+                    const db = await this.open();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(this.STORE_EVENTS, 'readonly');
+                        const store = tx.objectStore(this.STORE_EVENTS);
+                        const req = store.getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+                } catch (e) { console.warn('[IDB] getAll error:', e); return []; }
+            },
+
+            async saveAll(eventsArray) {
+                try {
+                    const db = await this.open();
+                    const tx = db.transaction(this.STORE_EVENTS, 'readwrite');
+                    const store = tx.objectStore(this.STORE_EVENTS);
+                    store.clear();
+                    eventsArray.forEach(ev => store.put(ev));
+                    return new Promise((resolve, reject) => {
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (e) { console.warn('[IDB] saveAll error:', e); }
+            },
+
+            async put(ev) {
+                try {
+                    const db = await this.open();
+                    const tx = db.transaction(this.STORE_EVENTS, 'readwrite');
+                    tx.objectStore(this.STORE_EVENTS).put(ev);
+                    return new Promise((resolve, reject) => {
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (e) { console.warn('[IDB] put error:', e); }
+            },
+
+            async delete(id) {
+                try {
+                    const db = await this.open();
+                    const tx = db.transaction(this.STORE_EVENTS, 'readwrite');
+                    tx.objectStore(this.STORE_EVENTS).delete(id);
+                    return new Promise((resolve, reject) => {
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (e) { console.warn('[IDB] delete error:', e); }
+            },
+
+            // ---- Sync Queue ----
+            async enqueue(operation) {
+                try {
+                    const db = await this.open();
+                    const tx = db.transaction(this.STORE_QUEUE, 'readwrite');
+                    tx.objectStore(this.STORE_QUEUE).put({
+                        ...operation,
+                        timestamp: Date.now()
+                    });
+                    return new Promise((resolve, reject) => {
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (e) { console.warn('[IDB] enqueue error:', e); }
+            },
+
+            async dequeue(queueId) {
+                try {
+                    const db = await this.open();
+                    const tx = db.transaction(this.STORE_QUEUE, 'readwrite');
+                    tx.objectStore(this.STORE_QUEUE).delete(queueId);
+                    return new Promise((resolve, reject) => {
+                        tx.oncomplete = resolve;
+                        tx.onerror = () => reject(tx.error);
+                    });
+                } catch (e) { console.warn('[IDB] dequeue error:', e); }
+            },
+
+            async getQueue() {
+                try {
+                    const db = await this.open();
+                    return new Promise((resolve, reject) => {
+                        const tx = db.transaction(this.STORE_QUEUE, 'readonly');
+                        const req = tx.objectStore(this.STORE_QUEUE).getAll();
+                        req.onsuccess = () => resolve(req.result || []);
+                        req.onerror = () => reject(req.error);
+                    });
+                } catch (e) { console.warn('[IDB] getQueue error:', e); return []; }
+            }
+        };
+
         // ================= DATA =================
         let events = [];
 
@@ -575,7 +597,7 @@
             });
             pendingFiles.forEach((f, i) => {
                 html += `<div class="flex items-center justify-between bg-slate-900/70 border border-slate-800 rounded-lg px-3 py-2">
-                    <span class="text-xs text-slate-300 truncate flex items-center gap-2"><i class="fa-solid fa-file-arrow-up text-imajik-warning"></i> ${esc(f.name)}</span>
+                    <span class="text-xs text-slate-300 truncate flex items-center gap-2"><i class="fa-solid fa-file-arrow-up" style="color:#f59e0b"></i> ${esc(f.name)}</span>
                     <button type="button" onclick="removePendingFile(${i})" class="text-slate-500 hover:text-red-400 text-xs px-1"><i class="fa-solid fa-xmark"></i></button>
                 </div>`;
             });
@@ -643,15 +665,77 @@
             else showToast('Tidak Ada Brief', 'Belum ada file brief untuk event ini.');
         }
 
+        // ================= SYNC QUEUE MANAGER =================
+        let isSyncing = false;
+
+        function showSyncBar(text) {
+            const bar = document.getElementById('sync-bar');
+            const barText = document.getElementById('sync-bar-text');
+            if (bar && barText) {
+                barText.textContent = text || 'Menyinkronkan...';
+                bar.classList.remove('hidden-bar');
+            }
+        }
+
+        function hideSyncBar() {
+            const bar = document.getElementById('sync-bar');
+            if (bar) bar.classList.add('hidden-bar');
+        }
+
+        async function processQueue() {
+            if (isSyncing || !API_ENDPOINT || !navigator.onLine) return;
+            const queue = await IDB.getQueue();
+            if (queue.length === 0) return;
+
+            isSyncing = true;
+            showSyncBar(`Menyinkronkan ${queue.length} perubahan...`);
+
+            let successCount = 0;
+            for (const item of queue) {
+                try {
+                    if (item.action === 'saveEvent') {
+                        const result = await fetchApi(API_ENDPOINT, {
+                            method: 'POST', redirect: 'follow',
+                            body: JSON.stringify({ action: 'saveEvent', event: item.event })
+                        });
+                        if (result.success) {
+                            await IDB.dequeue(item.queueId);
+                            successCount++;
+                        }
+                    } else if (item.action === 'deleteEvent') {
+                        const result = await fetchApi(API_ENDPOINT, {
+                            method: 'POST', redirect: 'follow',
+                            body: JSON.stringify({ action: 'deleteEvent', id: item.id, briefFolderUrl: item.briefFolderUrl })
+                        });
+                        if (result.success) {
+                            await IDB.dequeue(item.queueId);
+                            successCount++;
+                        }
+                    }
+                } catch (err) {
+                    console.warn('[SyncQueue] Gagal sync item:', item.queueId, err.message);
+                    break; // Stop processing jika ada error (mungkin offline lagi)
+                }
+            }
+
+            isSyncing = false;
+            hideSyncBar();
+
+            if (successCount > 0) {
+                showToast('Tersinkronkan', `${successCount} perubahan berhasil disinkronkan ke server.`);
+            }
+        }
+
         // ================= TOGGLE STATUS (langsung dari card) =================
         async function toggleStatus(eventId, field) {
             const ev = events.find(e => e.id === eventId);
             if (!ev) return;
 
-            // Toggle nilai
+            // Toggle nilai — optimistic update
             ev[field] = !ev[field];
 
-            // Update tampilan langsung
+            // Update IndexedDB + tampilan langsung
+            IDB.put(ev);
             currentViewKey = '';
             renderCalendarView();
 
@@ -667,7 +751,10 @@
                         body: JSON.stringify({ action: 'saveEvent', event: ev })
                     });
                 } catch (err) {
-                    showToast('Gagal Simpan', 'Perubahan status belum tersimpan ke server.');
+                    // Gagal sync ke server — masukkan ke retry queue agar dicoba lagi nanti
+                    console.warn('[toggleStatus] Gagal sync, masuk antrian.');
+                    await IDB.enqueue({ action: 'saveEvent', event: { ...ev } });
+                    showToast('Offline', 'Perubahan tersimpan lokal, akan disinkronkan nanti.');
                 }
             }
         }
@@ -936,23 +1023,52 @@
             renderCalendarView();
         }
 
-        // ================= SINKRONISASI DATABASE =================
+        // ================= SINKRONISASI DATABASE (LOCAL-FIRST) =================
         async function loadEventsFromServer() {
             if (!API_ENDPOINT) return;
 
-            document.getElementById('main-content').innerHTML = `
-                <div class="flex flex-col items-center justify-center py-24 text-slate-500">
-                    <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i>
-                    <p class="text-xs">Memuat data dari server...</p>
-                </div>`;
+            // LANGKAH 1: Baca dari IndexedDB dulu → langsung render (instan)
+            const localEvents = await IDB.getAll();
+            if (localEvents.length > 0) {
+                events = localEvents;
+                calendarBuilt = false;
+                currentViewKey = '';
+                renderCalendarView();
+                console.log('[LocalFirst] Render dari IndexedDB:', localEvents.length, 'events');
+            } else {
+                // IndexedDB kosong (pertama kali) → tampilkan loading
+                document.getElementById('main-content').innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-24 text-slate-500">
+                        <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-3"></i>
+                        <p class="text-xs">Memuat data dari server...</p>
+                    </div>`;
+            }
 
+            // LANGKAH 2: Background sync dengan server
             try {
                 const result = await fetchApi(`${API_ENDPOINT}?action=listEvents`);
-                if (result.success) events = result.events || [];
-                else showToast('Gagal Memuat', result.error || 'Data lokal tetap dipakai.');
+                if (result.success) {
+                    const serverEvents = result.events || [];
+
+                    // Selalu update dari server — data server adalah sumber kebenaran
+                    events = serverEvents;
+                    await IDB.saveAll(serverEvents);
+                    calendarBuilt = false;
+                    currentViewKey = '';
+                    renderCalendarView();
+                    console.log('[LocalFirst] Updated dari server:', serverEvents.length, 'events');
+                } else {
+                    showToast('Gagal Memuat', result.error || 'Data lokal tetap dipakai.');
+                }
             } catch (err) {
-                showToast('Gagal Terhubung', 'Tidak bisa mengambil data dari server.');
+                if (localEvents.length === 0) {
+                    showToast('Gagal Terhubung', 'Tidak bisa mengambil data dari server.');
+                }
+                // Kalau sudah ada data lokal, tidak perlu error — data IDB sudah ditampilkan
             }
+
+            // LANGKAH 3: Proses antrian sync yang tertunda
+            processQueue();
         }
 
         // ================= LOGIN =================
@@ -973,9 +1089,7 @@
                     document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
 
                     await loadEventsFromServer();
-                    calendarBuilt = false;
-                    currentViewKey = '';
-                    renderCalendarView();
+                    // renderCalendarView sudah dipanggil di dalam loadEventsFromServer
 
                     showToast('Akses Diberikan', 'Selamat datang, Brillian Fairiandi.');
                     btn.innerHTML = 'Masuk';
@@ -1000,7 +1114,7 @@
                 loginView.classList.remove('hidden');
                 loginView.style.opacity = '1';
 
-                // Reset state
+                // Reset state (tapi JANGAN hapus IndexedDB — data tetap untuk next login)
                 events = [];
                 calendarBuilt = false;
                 currentViewKey = '';
@@ -1076,6 +1190,7 @@
             document.getElementById('ev-delete-confirm').style.display = 'none';
         }
 
+        // ================= SAVE EVENT (OPTIMISTIC UI) =================
         async function saveEvent(e) {
             e.preventDefault();
             const id = document.getElementById('ev-id').value;
@@ -1117,80 +1232,107 @@
             }
 
             const eventId = id || generateEventId(data.date, data.clientName);
+
+            // Upload file (ini tetap harus menunggu karena file perlu ke Drive)
             const uploadResult = await uploadPendingFiles(eventId);
             data.briefFiles = existingBriefFiles.concat(uploadResult.files);
             data.briefFolderUrl = uploadResult.folderUrl || (existingEvent ? existingEvent.briefFolderUrl : null) || null;
 
-            const saveBtn = document.querySelector('#event-form button[type="submit"]');
-            const saveBtnOriginalText = saveBtn ? saveBtn.innerHTML : '';
+            // ===== OPTIMISTIC UI: Update lokal DULU, server di background =====
+            const optimisticEvent = { id: eventId, ...data };
 
-            if (API_ENDPOINT) {
-                if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
-                try {
-                    const result = await fetchApi(API_ENDPOINT, {
-                        method: 'POST', redirect: 'follow',
-                        body: JSON.stringify({ action: 'saveEvent', event: { id: eventId, ...data } })
-                    });
-                    if (!result.success) {
-                        showToast('Gagal Simpan', result.error || 'Error.');
-                        if (saveBtn) saveBtn.innerHTML = saveBtnOriginalText;
-                        return false;
-                    }
-                    const saved = result.event;
-                    const idx = events.findIndex(ev => ev.id === saved.id);
-                    if (idx > -1) events[idx] = saved; else events.push(saved);
-                    showToast(id ? 'Tersimpan' : 'Ditambahkan', `Event "${saved.title}" berhasil ${id ? 'diperbarui' : 'ditambahkan'}.`);
-                    selectedDate = saved.date;
-                    viewYear = dateFromISO(saved.date).getFullYear();
-                    viewMonth = dateFromISO(saved.date).getMonth();
-                } catch (err) {
-                    showToast('Gagal Terhubung', 'Perubahan belum tersimpan.');
-                    if (saveBtn) saveBtn.innerHTML = saveBtnOriginalText;
-                    return false;
-                }
+            // Update array events lokal
+            const idx = events.findIndex(ev => ev.id === eventId);
+            const rollbackEvents = [...events]; // Backup untuk rollback
+            if (idx > -1) {
+                events[idx] = optimisticEvent;
             } else {
-                if (id) {
-                    const idx = events.findIndex(ev => ev.id === id);
-                    if (idx > -1) events[idx] = { ...events[idx], ...data };
-                    showToast('Tersimpan', `Event "${data.title}" berhasil diperbarui.`);
-                } else {
-                    data.id = generateEventId(data.date, data.clientName);
-                    events.push(data);
-                    showToast('Ditambahkan', `Event "${data.title}" berhasil ditambahkan.`);
-                }
-                selectedDate = data.date;
-                viewYear = dateFromISO(data.date).getFullYear();
-                viewMonth = dateFromISO(data.date).getMonth();
+                events.push(optimisticEvent);
             }
 
+            // Simpan ke IndexedDB
+            IDB.put(optimisticEvent);
+
+            // Update tampilan langsung (INSTAN!)
+            selectedDate = optimisticEvent.date;
+            viewYear = dateFromISO(optimisticEvent.date).getFullYear();
+            viewMonth = dateFromISO(optimisticEvent.date).getMonth();
             closeEventForm();
             currentViewKey = '';
             renderCalendarView();
+            showToast(id ? 'Tersimpan' : 'Ditambahkan', `Event "${optimisticEvent.title}" berhasil ${id ? 'diperbarui' : 'ditambahkan'}.`);
+
+            // ===== BACKGROUND: Kirim ke server =====
+            if (API_ENDPOINT) {
+                try {
+                    const result = await fetchApi(API_ENDPOINT, {
+                        method: 'POST', redirect: 'follow',
+                        body: JSON.stringify({ action: 'saveEvent', event: optimisticEvent })
+                    });
+                    if (!result.success) {
+                        // Server menolak — masukkan ke antrian retry
+                        console.warn('[saveEvent] Server menolak, masuk antrian:', result.error);
+                        await IDB.enqueue({ action: 'saveEvent', event: optimisticEvent });
+                        showToast('Sync Tertunda', 'Tersimpan lokal, akan disinkronkan nanti.');
+                    } else {
+                        // Server sukses — update dengan data dari server (mungkin ada enrichment)
+                        const saved = result.event;
+                        const serverIdx = events.findIndex(ev => ev.id === saved.id);
+                        if (serverIdx > -1) events[serverIdx] = saved;
+                        IDB.put(saved);
+                    }
+                } catch (err) {
+                    // Network error — masukkan ke antrian retry
+                    console.warn('[saveEvent] Network error, masuk antrian:', err.message);
+                    await IDB.enqueue({ action: 'saveEvent', event: optimisticEvent });
+                    showToast('Offline', 'Tersimpan lokal, akan disinkronkan saat online.');
+                }
+            }
+
             return false;
         }
 
         function requestDeleteEvent() { document.getElementById('ev-delete-confirm').style.display = 'flex'; }
         function cancelDeleteEvent() { document.getElementById('ev-delete-confirm').style.display = 'none'; }
 
+        // ================= DELETE EVENT (OPTIMISTIC UI) =================
         async function confirmDeleteEvent() {
             const id = document.getElementById('ev-id').value;
             if (!id) return;
             const ev = events.find(e => e.id === id);
+            const rollbackEvents = [...events]; // Backup untuk rollback
 
+            // ===== OPTIMISTIC UI: Hapus dari tampilan DULU =====
+            events = events.filter(e => e.id !== id);
+            IDB.delete(id);
+            closeEventForm();
+            currentViewKey = '';
+            renderCalendarView();
+            showToast('Dihapus', `Event "${ev ? ev.title : ''}" berhasil dihapus.`);
+
+            // ===== BACKGROUND: Kirim ke server =====
             if (API_ENDPOINT) {
                 try {
                     const result = await fetchApi(API_ENDPOINT, {
                         method: 'POST', redirect: 'follow',
                         body: JSON.stringify({ action: 'deleteEvent', id, briefFolderUrl: ev ? ev.briefFolderUrl : null })
                     });
-                    if (!result.success) { showToast('Gagal Hapus', result.error || 'Error.'); return; }
-                } catch (err) { showToast('Gagal Terhubung', 'Tidak bisa menghubungi server.'); return; }
+                    if (!result.success) {
+                        console.warn('[deleteEvent] Server menolak:', result.error);
+                        // Rollback — kembalikan event
+                        events = rollbackEvents;
+                        if (ev) IDB.put(ev);
+                        currentViewKey = '';
+                        renderCalendarView();
+                        showToast('Gagal Hapus', result.error || 'Event dikembalikan.');
+                    }
+                } catch (err) {
+                    // Network error — masukkan ke antrian
+                    console.warn('[deleteEvent] Network error, masuk antrian:', err.message);
+                    await IDB.enqueue({ action: 'deleteEvent', id, briefFolderUrl: ev ? ev.briefFolderUrl : null });
+                    showToast('Offline', 'Penghapusan akan disinkronkan saat online.');
+                }
             }
-
-            events = events.filter(e => e.id !== id);
-            closeEventForm();
-            showToast('Dihapus', `Event "${ev ? ev.title : ''}" berhasil dihapus.`);
-            renderCalendarView();
         }
 
         // ================= MISC =================
@@ -1217,6 +1359,29 @@
                 icon.className = 'fa-solid fa-eye';
             }
         }
+
+        // ================= SERVICE WORKER REGISTRATION =================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('[SW] Registered:', reg.scope))
+                    .catch(err => console.warn('[SW] Registration failed:', err));
+            });
+        }
+
+        // ================= ONLINE/OFFLINE LISTENERS =================
+        window.addEventListener('online', () => {
+            console.log('[Network] Online — processing sync queue...');
+            processQueue();
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('[Network] Offline');
+            showToast('Offline', 'Anda sedang offline. Perubahan akan disinkronkan saat online.');
+        });
+
+        // Pre-initialize IndexedDB saat halaman dimuat
+        IDB.open().catch(err => console.warn('[IDB] Pre-init error:', err));
 
     </script>
 </body>
