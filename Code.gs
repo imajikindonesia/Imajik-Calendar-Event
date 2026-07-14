@@ -20,6 +20,26 @@ const HEADERS = [
   'Upload Brief','DATE END'
 ];
 
+// ================= CACHE CONFIG =================
+
+const CACHE_KEY = 'events_json';
+const CACHE_TTL = 90; // detik
+
+function getCache() {
+  return CacheService.getScriptCache();
+}
+
+/**
+ * Invalidasi cache events. Dipanggil setiap kali data berubah (save/delete).
+ */
+function invalidateEventsCache() {
+  try {
+    getCache().remove(CACHE_KEY);
+  } catch (e) {
+    // CacheService kadang error transien, abaikan
+  }
+}
+
 // ================= WEB APP HANDLERS =================
 
 function doGet(e) {
@@ -153,8 +173,34 @@ function eventToRow(ev) {
 // ================= CRUD OPERATIONS =================
 
 function listEvents() {
+  // Cek cache dulu — kalau ada, langsung return (skip baca spreadsheet)
+  const cache = getCache();
+  try {
+    const cached = cache.get(CACHE_KEY);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    // Cache error, lanjut baca spreadsheet
+  }
+
+  // Cache kosong/expired — baca dari spreadsheet
   const data = getSheet().getDataRange().getValues();
-  return data.slice(1).filter(r => r[0]).map(rowToEvent);
+  const events = data.slice(1).filter(r => r[0]).map(rowToEvent);
+
+  // Simpan ke cache untuk request berikutnya
+  try {
+    const json = JSON.stringify(events);
+    // CacheService limit ~100KB per key. Kalau > 100KB, lewati cache saja.
+    if (json.length <= 100000) {
+      cache.put(CACHE_KEY, json, CACHE_TTL);
+    }
+    // kalau > 100000: sengaja tidak di-cache, tetap aman karena listEvents baca spreadsheet
+  } catch (e) {
+    // Cache simpan gagal, tidak masalah — data tetap ter-return
+  }
+
+  return events;
 }
 
 function saveEvent(ev) {
@@ -176,10 +222,12 @@ function saveEvent(ev) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][idCol] === ev.id) {
       sheet.getRange(i + 1, 1, 1, COLUMNS.length).setValues([eventToRow(ev)]);
+      invalidateEventsCache(); // <-- Invalidasi cache setelah update
       return ev;
     }
   }
   sheet.appendRow(eventToRow(ev));
+  invalidateEventsCache(); // <-- Invalidasi cache setelah insert
   return ev;
 }
 
@@ -204,6 +252,7 @@ function deleteEvent(id, briefFolderUrl) {
 
       // Hapus row dari spreadsheet
       sheet.deleteRow(i + 1);
+      invalidateEventsCache(); // <-- Invalidasi cache setelah delete
       return;
     }
   }
